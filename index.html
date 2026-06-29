@@ -1,1 +1,922 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DIKW × 간호과정 인터랙티브 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  /* ===== Care Green 디자인 시스템 ===== */
+  :root{
+    --green-900:#065F46;   /* 주 */
+    --green-700:#047857;
+    --green-500:#10B981;
+    --green-400:#34D399;
+    --green-100:#D1FAE5;
+    --green-050:#ECFDF5;
+    --ink:#1F2A28;
+    --ink-soft:#475a55;
+    --paper:#F7FBF9;
+    --white:#ffffff;
+    --line:#cfe6dd;
+    --warn:#B45309;
+    --warn-bg:#FEF3C7;
+    --bad:#B91C1C;
+    --bad-bg:#FEE2E2;
+    --good:#065F46;
+    --good-bg:#D1FAE5;
+    /* DIKW 층 색상 (아래→위로 점층 강조) */
+    --d-data:#9CA3AF;
+    --d-info:#34D399;
+    --d-know:#10B981;
+    --d-wis:#065F46;
+    --shadow:0 6px 22px rgba(6,95,70,.10);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:'Noto Sans KR',sans-serif;
+    background:
+      radial-gradient(1200px 500px at 80% -10%, #e7f7f0 0%, transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.serif{font-family:'Noto Serif KR',serif}
+  code,.mono,.val{font-family:'JetBrains Mono',monospace}
+  a{color:var(--green-700)}
 
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 18px 60px}
+
+  /* ===== 헤더 ===== */
+  header.app{
+    background:linear-gradient(135deg,var(--green-900),var(--green-700));
+    color:#eafff7;border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow);
+    position:relative;overflow:hidden;
+  }
+  header.app::after{
+    content:"";position:absolute;right:-40px;top:-40px;width:220px;height:220px;
+    background:radial-gradient(circle,var(--green-400) 0%,transparent 70%);opacity:.25;
+  }
+  header.app h1{margin:0 0 4px;font-size:clamp(20px,3.4vw,30px);letter-spacing:-.4px}
+  header.app p{margin:0;opacity:.92;font-size:14.5px}
+  .badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .pill{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);
+    color:#eafff7;border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:500}
+
+  /* ===== 연속체 주의 문구 ===== */
+  .continuum-note{
+    margin:16px 0;border-left:5px solid var(--green-500);background:var(--green-050);
+    border-radius:10px;padding:13px 16px;font-size:13.6px;color:var(--ink-soft);
+  }
+  .continuum-note strong{color:var(--green-900)}
+
+  /* ===== 스테퍼 ===== */
+  .stepper{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:18px 0 6px}
+  .step{
+    background:var(--white);border:2px solid var(--line);border-radius:12px;
+    padding:11px 8px;text-align:center;cursor:pointer;transition:.18s;position:relative;
+    font-weight:500;color:var(--ink-soft);
+  }
+  .step:hover{border-color:var(--green-400)}
+  .step:focus-visible{outline:3px solid var(--green-400);outline-offset:2px}
+  .step .n{
+    display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+    border-radius:50%;background:var(--line);color:var(--ink);font-weight:700;font-size:13px;
+    margin-bottom:5px;font-family:'JetBrains Mono',monospace;transition:.18s;
+  }
+  .step .t{font-size:14px;display:block}
+  .step .cog{font-size:11px;display:block;margin-top:3px;color:var(--green-700);opacity:.85}
+  .step.active{border-color:var(--green-900);background:var(--green-050);color:var(--green-900);box-shadow:var(--shadow)}
+  .step.active .n{background:var(--green-900);color:#fff}
+  .step.done .n{background:var(--green-500);color:#fff}
+  .step.done .n::after{content:"✓"}
+  .step.done .n .num{display:none}
+
+  .progress{height:9px;background:var(--green-100);border-radius:999px;overflow:hidden;margin:10px 0 4px}
+  .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--green-500),var(--green-900));
+    width:0;transition:width .5s ease;border-radius:999px}
+  .progress-label{font-size:12.5px;color:var(--ink-soft);text-align:right;margin-bottom:14px}
+
+  /* ===== 본문 2열 ===== */
+  .stage-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  @media (max-width:880px){
+    .stage-grid{grid-template-columns:1fr}
+    .stepper{grid-template-columns:repeat(5,1fr)}
+    .step .t{font-size:12px}
+    .step .cog{display:none}
+  }
+  .card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 18px;box-shadow:var(--shadow)}
+  .card h2{margin:0 0 4px;font-size:19px;color:var(--green-900)}
+  .card .lead{font-size:13.5px;color:var(--ink-soft);margin:0 0 12px}
+  .section-tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.4px;
+    color:var(--green-700);background:var(--green-100);border-radius:6px;padding:2px 9px;margin-bottom:8px}
+
+  /* 환자 카드 */
+  .pt-head{display:flex;gap:12px;align-items:center;background:var(--green-050);
+    border:1px solid var(--green-100);border-radius:11px;padding:11px 13px;margin-bottom:13px}
+  .pt-head .ava{width:42px;height:42px;border-radius:50%;background:var(--green-900);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Noto Serif KR',serif;flex:0 0 auto}
+  .pt-head b{color:var(--green-900)}
+  .pt-head small{display:block;color:var(--ink-soft);font-size:12.5px}
+
+  /* 데이터 테이블 */
+  .data-list{display:flex;flex-direction:column;gap:7px}
+  .data-row{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;
+    border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:#fff;transition:.2s}
+  .data-row .k{font-size:12.5px;color:var(--ink-soft);font-weight:500}
+  .data-row .v{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:14px;color:var(--ink)}
+  .data-row .v .unit{font-size:11px;color:var(--ink-soft);font-weight:400;margin-left:2px}
+  .data-row.flag{border-color:var(--green-400);background:var(--green-050)}
+  .data-row .abn{display:inline-block;font-size:11px;color:#fff;background:var(--warn);
+    border-radius:5px;padding:0 6px;margin-left:6px;font-family:'Noto Sans KR'}
+  .verify{font-size:10.5px;color:var(--warn);background:var(--warn-bg);border-radius:4px;
+    padding:0 5px;margin-left:5px;font-family:'Noto Sans KR'}
+
+  .activity{font-size:13.6px;color:var(--ink-soft);background:#fff;border:1px dashed var(--line);
+    border-radius:10px;padding:11px 13px;margin-top:13px}
+  .activity b{color:var(--green-900)}
+
+  /* ===== DIKW 4층 패널 ===== */
+  .dikw-panel{display:flex;flex-direction:column-reverse;gap:9px}
+  .layer{border-radius:11px;padding:11px 13px 12px;position:relative;border:2px solid transparent;
+    transition:transform .35s cubic-bezier(.2,.7,.2,1),box-shadow .35s,opacity .35s,border-color .35s;
+    opacity:.55;transform:scale(.985)}
+  .layer .lh{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+  .layer .lt{font-family:'Noto Serif KR',serif;font-weight:700;font-size:15px}
+  .layer .le{font-size:11px;font-family:'JetBrains Mono',monospace;opacity:.8;margin-left:auto}
+  .layer .lc{font-size:13px;line-height:1.5}
+  .layer .ico{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+    font-weight:700;color:#fff;font-size:13px;flex:0 0 auto}
+  .layer.L-data{background:#f3f4f6;border-color:#e5e7eb}
+  .layer.L-data .ico{background:var(--d-data)} .layer.L-data .lt{color:#4b5563}
+  .layer.L-info{background:#e9fbf2} .layer.L-info .ico{background:var(--d-info)} .layer.L-info .lt{color:#0f7a55}
+  .layer.L-know{background:#dcf7ec} .layer.L-know .ico{background:var(--d-know)} .layer.L-know .lt{color:#0a6b4a}
+  .layer.L-wis{background:#cfeee2} .layer.L-wis .ico{background:var(--d-wis)} .layer.L-wis .lt{color:var(--green-900)}
+  .layer.on{opacity:1;transform:scale(1)}
+  .layer.cog{opacity:1;transform:scale(1.015);box-shadow:0 8px 26px rgba(6,95,70,.20);border-color:var(--green-900)}
+  .layer.cog::before{content:"무게중심";position:absolute;top:-9px;right:12px;background:var(--green-900);
+    color:#fff;font-size:10px;font-weight:700;border-radius:6px;padding:1px 8px;letter-spacing:.3px}
+  .flow-arrow{text-align:center;color:var(--green-500);font-size:18px;line-height:0;margin:-3px 0}
+
+  .focus-chip{display:flex;gap:8px;align-items:center;background:var(--green-050);border:1px solid var(--green-100);
+    border-radius:9px;padding:7px 10px;margin-bottom:11px;font-size:12.5px;color:var(--ink-soft)}
+  .focus-chip .v{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--green-900)}
+  .focus-select{margin-left:auto}
+  select{font-family:'Noto Sans KR';font-size:12.5px;border:1px solid var(--line);border-radius:7px;
+    padding:4px 7px;background:#fff;color:var(--ink)}
+
+  /* ===== 미니퀴즈 ===== */
+  .quiz{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .quiz h3{margin:0 0 3px;font-size:16px;color:var(--green-900)}
+  .quiz .sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 12px}
+  .qitem{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:11px;background:#fff}
+  .qitem .stmt{font-size:14px;margin-bottom:9px}
+  .qitem .stmt .val{color:var(--green-900);font-weight:600}
+  .opts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  @media (max-width:520px){.opts{grid-template-columns:repeat(2,1fr)}}
+  .opt{border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:7px 4px;font-size:12.5px;
+    font-weight:600;cursor:pointer;transition:.15s;color:var(--ink-soft);font-family:'Noto Sans KR'}
+  .opt:hover:not(:disabled){border-color:var(--green-400);color:var(--green-900)}
+  .opt:focus-visible{outline:3px solid var(--green-400);outline-offset:1px}
+  .opt.correct{background:var(--good-bg);border-color:var(--green-900);color:var(--green-900)}
+  .opt.wrong{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+  .opt:disabled{cursor:default}
+  .fb{margin-top:9px;font-size:12.8px;border-radius:8px;padding:8px 11px;display:none;line-height:1.55}
+  .fb.show{display:block}
+  .fb.ok{background:var(--good-bg);color:var(--green-900)}
+  .fb.no{background:var(--bad-bg);color:var(--bad)}
+  .fb b{font-weight:700}
+
+  /* ===== 의사결정 분기 ===== */
+  .decision{margin-top:8px}
+  .scenario{background:var(--warn-bg);border:1px solid #fde68a;border-radius:11px;padding:12px 14px;
+    font-size:13.6px;color:#7c4a02;margin-bottom:13px}
+  .scenario b{color:var(--warn)}
+  .choice{display:block;width:100%;text-align:left;border:1.5px solid var(--line);background:#fff;
+    border-radius:11px;padding:12px 14px;margin-bottom:10px;cursor:pointer;transition:.15s;font-family:'Noto Sans KR';font-size:13.8px}
+  .choice:hover:not(:disabled){border-color:var(--green-500);transform:translateY(-1px);box-shadow:var(--shadow)}
+  .choice:focus-visible{outline:3px solid var(--green-400);outline-offset:2px}
+  .choice .ch-t{font-weight:600;color:var(--ink)}
+  .choice .ch-tag{float:right;font-size:11px;font-weight:700;border-radius:6px;padding:1px 8px}
+  .choice:disabled{cursor:default;opacity:.95}
+  .choice.best{border-color:var(--green-900);background:var(--green-050)}
+  .choice.bad{border-color:var(--bad);background:var(--bad-bg)}
+  .choice.mid{border-color:var(--warn);background:var(--warn-bg)}
+  .outcome{display:none;margin-top:4px;border-radius:11px;padding:13px 15px;font-size:13.4px;line-height:1.6}
+  .outcome.show{display:block}
+  .outcome.best{background:var(--good-bg);color:var(--green-900)}
+  .outcome.bad{background:var(--bad-bg);color:var(--bad)}
+  .outcome.mid{background:var(--warn-bg);color:#7c4a02}
+  .outcome h4{margin:0 0 5px;font-size:14.5px}
+  .outcome .why{margin-top:7px;font-size:12.7px;opacity:.95}
+
+  /* ===== 평가/순환 ===== */
+  .trend{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}
+  .trend .t{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:#fff}
+  .trend .t .k{font-size:12px;color:var(--ink-soft)}
+  .trend .t .v{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:15px;color:var(--green-900)}
+  .trend .t .arr{color:var(--green-500);font-weight:700}
+  .trend .t.up .v{color:var(--bad)} .trend .t.up .arr{color:var(--bad)}
+
+  /* ===== 버튼 ===== */
+  .nav{display:flex;justify-content:space-between;gap:10px;margin-top:18px;flex-wrap:wrap}
+  button.btn{font-family:'Noto Sans KR';font-weight:700;font-size:14px;border-radius:10px;
+    padding:11px 20px;cursor:pointer;border:2px solid var(--green-900);transition:.15s}
+  .btn.primary{background:var(--green-900);color:#fff}
+  .btn.primary:hover{background:var(--green-700)}
+  .btn.ghost{background:#fff;color:var(--green-900)}
+  .btn.ghost:hover{background:var(--green-050)}
+  .btn:focus-visible{outline:3px solid var(--green-400);outline-offset:2px}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.recycle{background:linear-gradient(135deg,var(--green-500),var(--green-900));border-color:var(--green-900);color:#fff}
+
+  /* ===== 정리/점수 ===== */
+  .summary-card{margin-top:20px}
+  .score-big{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .donut{--p:0;width:118px;height:118px;border-radius:50%;flex:0 0 auto;
+    background:conic-gradient(var(--green-500) calc(var(--p)*1%), var(--green-100) 0);
+    display:flex;align-items:center;justify-content:center;position:relative}
+  .donut::before{content:"";position:absolute;inset:12px;background:#fff;border-radius:50%}
+  .donut span{position:relative;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:26px;color:var(--green-900)}
+  .donut span small{font-size:13px;color:var(--ink-soft)}
+  .recap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  @media (max-width:640px){.recap{grid-template-columns:1fr}}
+  .recap .r{border:1px solid var(--line);border-radius:11px;padding:12px 14px;background:var(--green-050)}
+  .recap .r b{color:var(--green-900);display:block;margin-bottom:3px;font-family:'Noto Serif KR'}
+  .recap .r span{font-size:13px;color:var(--ink-soft)}
+
+  .ref{font-size:12px;color:var(--ink-soft);margin-top:18px;border-top:1px dashed var(--line);padding-top:12px}
+  .ref b{color:var(--green-900)}
+
+  footer.app{text-align:center;margin-top:30px;color:var(--ink-soft);font-size:13px}
+  footer.app .sig{font-family:'Noto Serif KR';color:var(--green-900);font-weight:600}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120%);
+    background:var(--green-900);color:#fff;padding:11px 20px;border-radius:10px;font-size:13.5px;
+    box-shadow:var(--shadow);transition:.35s;z-index:50}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  .hidden{display:none !important}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+  /* DIKW 범례 */
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-soft);margin-top:11px}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <h1>DIKW × 간호과정 인터랙티브 시뮬레이터</h1>
+    <p>같은 환자 데이터가 간호과정 5단계를 거치며 어떻게 <b>정보 → 지식 → 지혜</b>로 격상되는지 직접 조작하며 체험하세요.</p>
+    <div class="badge-row">
+      <span class="pill">AI융합 간호정보학 · 3학년</span>
+      <span class="pill">데이터–지혜 연속체</span>
+      <span class="pill">임상 케이스: 패혈증 의심</span>
+    </div>
+  </header>
+
+  <div class="continuum-note">
+    ⚠️ <strong>핵심 관점:</strong> DIKW는 칸막이(고정 라벨)가 아니라 <strong>연속체</strong>입니다.
+    간호과정 단계와 DIKW 수준은 1:1로 고정 매핑되지 않으며, <strong>데이터 수집과 임상 판단은 전 과정에서 함께 일어납니다.</strong>
+    각 단계마다 인지적 <strong>"변환의 무게중심"</strong>이 이동할 뿐입니다.
+    <span class="mono" style="color:var(--green-700)">(Graves &amp; Corcoran, 1989 · Nelson 데이터–지혜 연속체)</span>
+  </div>
+
+  <!-- 스테퍼 -->
+  <nav class="stepper" id="stepper" aria-label="간호과정 단계"></nav>
+  <div class="progress" aria-hidden="true"><i id="progBar"></i></div>
+  <div class="progress-label" id="progLabel"></div>
+
+  <!-- 단계 본문 -->
+  <main class="stage-grid" id="stageGrid">
+    <!-- 왼쪽: 임상 활동 + 데이터 -->
+    <section class="card" id="leftCard" aria-live="polite"></section>
+    <!-- 오른쪽: DIKW 변환 패널 + 퀴즈/분기 -->
+    <section class="card" id="rightCard"></section>
+  </main>
+
+  <div class="nav">
+    <button class="btn ghost" id="prevBtn">← 이전 단계</button>
+    <button class="btn primary" id="nextBtn">다음 단계 →</button>
+  </div>
+
+  <!-- 학습 정리 (마지막) -->
+  <section class="card summary-card hidden" id="summaryCard" aria-live="polite"></section>
+
+  <footer class="app">
+    <div class="sig">제프리 교수 · 청암대학교 간호학과</div>
+    <div style="margin-top:4px">간호정보학 교육용 인터랙티브 학습 도구 · 진행상태는 브라우저에 자동 저장됩니다.</div>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   임상 케이스 객체 — 교체 가능하도록 구조화
+   하나의 원자료(rawData)가 DIKW 4수준 표현(d/i/k/w)을 모두 보유.
+   단계가 진행될수록 동일 데이터의 "강조 수준"이 위로 이동.
+   ========================================================================= */
+const CASE = {
+  id: "sepsis-cap-01",
+  title: "패혈증 의심 환자",
+  patient: { name:"김○○", info:"67세 여성 · 지역사회획득 폐렴으로 입원 2일째", initial:"김" },
+  // 원자료(사정에서 수집되는 객관적 이산 사실) + DIKW 격상 표현
+  rawData: [
+    { key:"temp", name:"체온", value:"38.9", unit:"℃", abn:"발열", flag:true,
+      d:"체온 38.9℃ (측정된 수치 그 자체)",
+      i:"정상범위(36.0–37.5℃)를 초과 → '발열' 상태로 해석",
+      k:"발열은 빈맥·빈호흡·WBC상승과 함께 전신염증반응(SIRS) 패턴을 구성",
+      w:"체온만으로 해열하지 않고 감염원 조절·소생술을 우선하는 판단의 근거로 통합" },
+    { key:"hr", name:"맥박", value:"118", unit:"회/분", abn:"빈맥", flag:true,
+      d:"맥박 118회/분",
+      i:"정상(60–100회/분) 초과 → '빈맥'",
+      k:"빈맥+저혈압 경향 = 보상성 순환반응, 조직관류 저하 가능성을 시사",
+      w:"수액 반응성·승압 필요성을 가늠하는 활력지표로 활용" },
+    { key:"rr", name:"호흡수", value:"24", unit:"회/분", abn:"빈호흡", flag:true,
+      d:"호흡수 24회/분",
+      i:"정상(12–20회/분) 초과 → '빈호흡'",
+      k:"빈호흡+SpO2 저하 = 호흡성 보상/저산소혈증, SIRS 기준의 한 축",
+      w:"기도·호흡 우선순위(ABC) 판단에 반영" },
+    { key:"bp", name:"혈압", value:"92/58", unit:"mmHg", abn:"저혈압 경향", flag:true,
+      d:"혈압 92/58 mmHg",
+      i:"수축기 <100 → '저혈압 경향' (qSOFA 항목)",
+      k:"저혈압+빈맥+의식변화 = qSOFA 양성 가능, 패혈증 중증도 상승 신호",
+      w:"수액 소생술 목표(MAP≥65)와 승압제 시작 시점 결정의 핵심 근거" },
+    { key:"spo2", name:"SpO₂", value:"91", unit:"% (실내공기)", abn:"저산소", flag:true,
+      d:"SpO₂ 91% (실내공기)",
+      i:"정상(≥95%) 미만 → '저산소혈증'",
+      k:"감염성 호흡부전 가능성, 산소화 악화 패턴",
+      w:"산소요법 시작·목표 SpO₂ 설정의 근거로 적용" },
+    { key:"wbc", name:"WBC", value:"15,800", unit:"/μL", abn:"증가", flag:true,
+      d:"WBC 15,800/μL",
+      i:"정상(4,000–10,000/μL) 초과 → '백혈구 증가증'",
+      k:"발열·빈맥과 결합 시 활동성 감염/염증 패턴을 강화",
+      w:"감염원 추정·배양검사·항생제 선택의 임상 추론에 통합" },
+    { key:"lac", name:"젖산(Lactate)", value:"2.8", unit:"mmol/L", abn:"상승", flag:true, verify:true,
+      d:"젖산 2.8 mmol/L",
+      i:"정상(<2.0 mmol/L) 초과 → 조직 저관류 의심 지표",
+      k:"젖산 상승 = 패혈증의 조직관류 손상 표지, 중증도·예후와 연관",
+      w:"소생술 효과를 추적하는 목표지표(재측정으로 호전 여부 판단)로 활용" },
+    { key:"sub", name:"환자 진술", value:"\"오한이 나고 기운이 하나도 없어요\"", unit:"", abn:"주관적 호소", flag:false,
+      d:"환자가 말한 주관적 진술(원자료)",
+      i:"전신 쇠약·오한 → 감염·발열의 동반 증상으로 맥락화",
+      k:"객관적 활력징후 패턴과 합치 → 임상상(clinical picture)의 일부로 종합",
+      w:"환자 경험을 반영해 안위·설명·동의 등 인간중심 중재 우선순위에 반영" },
+    { key:"obs", name:"관찰 소견", value:"기면 경향, 말초 차갑고 축축함, 8시간 소변 120mL", unit:"", abn:"관찰", flag:true, verify:true,
+      d:"간호사가 관찰한 객관적 소견(원자료)",
+      i:"의식 저하·말초 순환 저하·핍뇨 → 장기 저관류 징후로 해석",
+      k:"의식변화+핍뇨 = 말단장기 기능장애, 패혈증→중증패혈증 진행 신호",
+      w:"악화 추세를 인지하고 신속대응(Rapid Response)·재평가 주기 단축을 결정" }
+  ]
+};
+
+/* DIKW 4층 정의 */
+const DIKW = [
+  { lv:"data", cls:"L-data", icon:"D", title:"데이터", en:"DATA",
+    desc:"맥락·해석이 없는 객관적 이산 사실" },
+  { lv:"info", cls:"L-info", icon:"I", title:"정보", en:"INFORMATION",
+    desc:"데이터에 맥락이 부여되어 의미를 가진 상태" },
+  { lv:"know", cls:"L-know", icon:"K", title:"지식", en:"KNOWLEDGE",
+    desc:"정보 간 관계·패턴을 종합해 개념화한 상태" },
+  { lv:"wis", cls:"L-wis", icon:"W", title:"지혜", en:"WISDOM",
+    desc:"지식을 실제 상황에 적절히 적용해 판단·행동" }
+];
+
+/* =========================================================================
+   간호과정 5단계 정의 — 무게중심(cog) 이동 + 활성층(on)
+   1:1 고정 매핑이 아님을 강조: 각 단계는 여러 층이 '함께' 활성, 무게중심만 이동.
+   ========================================================================= */
+const STAGES = [
+  {
+    key:"assess", name:"사정", cog:"info",
+    cogText:"데이터 → 정보",
+    on:["data","info"],
+    desc:"원자료를 빠짐없이 수집하고, 정상범위와 비교해 <b>의미(정보)</b>를 부여하는 단계입니다. 데이터 수집이 무게중심이지만, 숙련 간호사는 이미 패턴(지식)도 함께 감지합니다.",
+    activity:"활력징후·검사수치·환자 진술·관찰 소견을 체계적으로 수집합니다. 각 수치를 정상범위와 대조하여 '발열', '빈맥' 등 <b>해석된 정보</b>로 전환합니다.",
+    focus:"temp"
+  },
+  {
+    key:"diagnose", name:"진단", cog:"know",
+    cogText:"정보 → 지식",
+    on:["info","know"],
+    desc:"흩어진 정보들 사이의 <b>관계·패턴</b>을 종합해 간호진단(개념)으로 묶는 단계입니다. 개별 정보가 하나의 임상상으로 통합됩니다.",
+    activity:"발열·빈맥·빈호흡·WBC상승·의식변화를 연결해 <b>SIRS/패혈증 의심 패턴</b>을 식별하고, '감염과 관련된 비효과적 조직관류' 등 간호진단을 도출합니다.",
+    focus:"temp"
+  },
+  {
+    key:"plan", name:"계획", cog:"know",
+    cogText:"지식 활용",
+    on:["info","know"],
+    desc:"종합된 <b>지식을 활용</b>하여 우선순위·목표·중재를 설계하는 단계입니다. 근거기반 지식을 이 환자의 목표로 구체화합니다.",
+    activity:"패혈증 번들(예: 측정·배양·항생제·수액 목표)을 근거로 <b>우선순위(ABC)</b>와 측정가능한 목표(예: MAP≥65, SpO₂≥94%)를 설정합니다.",
+    focus:"bp"
+  },
+  {
+    key:"implement", name:"수행", cog:"wis",
+    cogText:"지식 → 지혜",
+    on:["know","wis"],
+    desc:"계획된 지식을 <b>실제 환자·실시간 상황에 적용</b>하여 판단·행동하는 단계입니다. 여기서 지식이 <b>지혜</b>로 발현됩니다.",
+    activity:"실제 환자 반응을 보며 무엇을, 왜, 어떤 우선순위로 중재할지 결정합니다. 아래 의사결정 분기점에서 직접 판단해 보세요.",
+    focus:"bp"
+  },
+  {
+    key:"evaluate", name:"평가", cog:"wis",
+    cogText:"지혜 · 순환 피드백",
+    on:["know","wis"],
+    desc:"중재 결과를 <b>판단</b>하고, 목표 달성 여부에 따라 간호과정을 <b>재순환</b>시키는 단계입니다. 새로운 데이터가 다시 사정으로 환류됩니다.",
+    activity:"재측정 데이터(젖산·활력징후·소변량)의 추세를 해석해 중재 효과를 판단하고, 계획 유지/수정/재사정을 결정합니다.",
+    focus:"lac"
+  }
+];
+
+/* =========================================================================
+   단계별 분류 미니퀴즈 — 항목을 DIKW 수준으로 분류
+   ========================================================================= */
+const QUIZ = {
+  assess:[
+    { stmt:"<span class='val'>체온 38.9℃</span> 라고 기록된 측정값", ans:"data",
+      ex:"측정된 수치 그 자체로, 맥락·해석이 없는 객관적 사실 → <b>데이터</b>." },
+    { stmt:"38.9℃는 정상범위(36.0–37.5℃)를 넘는 <span class='val'>발열</span>이다", ans:"info",
+      ex:"수치에 정상범위라는 맥락이 부여되어 '발열'이라는 의미를 가짐 → <b>정보</b>." },
+    { stmt:"환자가 <span class='val'>\"오한이 난다\"</span>고 말한 진술", ans:"data",
+      ex:"환자의 주관적 진술도 해석 전이라면 수집된 원자료 → <b>데이터</b>. (주관적 자료도 데이터)" },
+    { stmt:"<span class='val'>SpO₂ 91%</span> 는 정상(≥95%)보다 낮다", ans:"info",
+      ex:"수치를 기준치와 비교해 '저산소'라는 의미를 부여 → <b>정보</b>." }
+  ],
+  diagnose:[
+    { stmt:"<span class='val'>맥박 118회/분</span> 이라는 모니터 수치", ans:"data",
+      ex:"해석 이전의 객관적 측정값 → <b>데이터</b>. (진단 단계에도 데이터는 계속 존재)" },
+    { stmt:"발열 + 빈맥 + WBC상승 + 의식변화 = <span class='val'>SIRS/패혈증 의심 패턴</span>", ans:"know",
+      ex:"여러 정보 간 관계를 종합해 하나의 임상 패턴(개념)으로 묶음 → <b>지식</b>." },
+    { stmt:"118회/분은 정상(60–100)을 넘는 <span class='val'>빈맥</span>이다", ans:"info",
+      ex:"수치에 기준이라는 맥락이 더해진 의미 → <b>정보</b>." },
+    { stmt:"이 패턴은 <span class='val'>'감염과 관련된 비효과적 조직관류'</span>를 시사한다", ans:"know",
+      ex:"패턴을 간호진단(개념)으로 추론·통합 → <b>지식</b>." }
+  ],
+  plan:[
+    { stmt:"<span class='val'>젖산 2.8 mmol/L</span> 검사 결과값", ans:"data",
+      ex:"측정된 수치 자체 → <b>데이터</b>." },
+    { stmt:"근거기반 <span class='val'>패혈증 번들(Sepsis bundle)</span>을 이 환자에 적용하기로 한다", ans:"know",
+      ex:"일반화된 근거·개념(지식)을 계획에 동원 → <b>지식의 활용</b>." },
+    { stmt:"목표를 <span class='val'>MAP ≥ 65mmHg, SpO₂ ≥ 94%</span> 로 설정", ans:"know",
+      ex:"근거 지식을 환자 목표로 구체화 → <b>지식 활용</b>. (개별 수치는 데이터지만, 목표 설정은 지식 기반)" },
+    { stmt:"우선순위를 <span class='val'>기도→호흡→순환(ABC)</span> 순으로 둔다", ans:"know",
+      ex:"임상 원칙(지식)을 적용해 우선순위를 구조화 → <b>지식</b>." }
+  ],
+  implement:[
+    { stmt:"항생제는 <span class='val'>1시간 이내 투여</span> 시 사망률을 낮춘다 (일반 근거)", ans:"know",
+      ex:"맥락에 무관하게 일반화된 근거 → <b>지식</b>." },
+    { stmt:"지금 이 환자에게 <span class='val'>해열 대신 수액 소생술과 항생제를 우선</span>하기로 결정", ans:"wis",
+      ex:"지식을 '이 환자·이 순간'에 적용해 우선순위를 판단·행동 → <b>지혜</b>." },
+    { stmt:"<span class='val'>혈압 92/58 mmHg</span> 모니터 값", ans:"data",
+      ex:"측정값 그 자체 → <b>데이터</b>. (수행 중에도 새 데이터는 계속 들어옴)" },
+    { stmt:"환자의 두려움을 고려해 <span class='val'>설명·안위를 함께 제공</span>하기로 판단", ans:"wis",
+      ex:"인간중심 가치를 상황에 통합한 실천적 판단 → <b>지혜</b>." }
+  ],
+  evaluate:[
+    { stmt:"재측정한 <span class='val'>젖산 1.6 mmol/L</span> 수치", ans:"data",
+      ex:"새로 측정된 값 자체 → <b>데이터</b>. (평가 단계에서 데이터가 다시 수집됨 = 순환)" },
+    { stmt:"젖산이 <span class='val'>2.8 → 1.6 으로 감소</span>해 정상화되었다", ans:"info",
+      ex:"두 시점의 데이터를 비교해 추세라는 의미를 부여 → <b>정보</b>." },
+    { stmt:"수액·항생제 중재가 <span class='val'>조직관류를 개선</span>시킨 것으로 본다", ans:"know",
+      ex:"여러 호전 지표를 종합해 인과·기전으로 개념화 → <b>지식</b>." },
+    { stmt:"호전되었으나 재악화 위험을 고려해 <span class='val'>모니터링을 유지하고 재사정</span>하기로 결정", ans:"wis",
+      ex:"결과 판단을 바탕으로 다음 행동을 결정 → <b>지혜</b> (그리고 간호과정의 순환)." }
+  ]
+};
+
+/* 수행 단계 의사결정 분기 */
+const DECISION = {
+  scenario:"초기 수액 30mL/kg을 투여했으나 재평가 결과 <b>혈압 88/54, MAP 약 65 미만, 의식 더 처짐, 8시간 소변 90mL, 젖산 3.1로 오히려 상승</b>. 항생제는 아직 투여 전입니다. <b>지금, 무엇을 우선하시겠습니까?</b>",
+  options:[
+    { id:"A", grade:"bad", tag:"부적절", tagColor:"#B91C1C",
+      label:"발열이 원인이라 보고 해열제만 투여한 뒤 다음 정규 라운드까지 경과를 관찰한다.",
+      title:"위험한 선택입니다",
+      body:"활력징후 악화·젖산 상승은 진행하는 저관류(쇼크)를 시사합니다. 해열·경과관찰은 골든타임을 놓쳐 패혈성 쇼크·다발성 장기부전으로 악화될 수 있습니다.",
+      why:"데이터(발열)만 보고 패턴(지식)을 통합하지 못한 판단 — 지혜의 부재." },
+    { id:"B", grade:"best", tag:"적정", tagColor:"#065F46",
+      label:"악화로 판단해 즉시 주치의/신속대응팀에 보고하고, 광범위 항생제 투여와 추가 소생술(승압제 시작 검토)을 준비하며 산소·모니터링을 강화한다.",
+      title:"가장 적절한 임상 판단입니다",
+      body:"qSOFA 양성·젖산 상승·수액 불응성 저혈압은 즉각적 상위 중재를 요구합니다. 보고·항생제·승압·모니터링을 동시에 가동하는 것이 근거에 부합합니다.",
+      why:"지식(패혈증 번들·악화 신호)을 이 환자의 실시간 상황에 적용해 우선순위를 결정 — 지혜의 발현." },
+    { id:"C", grade:"mid", tag:"불충분", tagColor:"#B45309",
+      label:"수액만 같은 속도로 계속 투여하며 다음 활력징후 측정까지 단독으로 기다린다.",
+      title:"방향은 맞지만 불충분합니다",
+      body:"수액 지속은 필요할 수 있으나, 수액 불응성 저혈압에서는 승압제·항생제·보고가 함께 필요합니다. 단독 관망은 악화를 방치할 위험이 있습니다.",
+      why:"부분적 지식 적용 — 상황의 긴급성과 다중 중재 필요성을 통합하지 못함." }
+  ]
+};
+
+/* =========================================================================
+   상태 / localStorage
+   ========================================================================= */
+const STORE_KEY = "dikw_nursing_sim_v1";
+const defaultState = () => ({
+  current:0, maxReached:0, cycles:0,
+  quiz:{}, decision:null, focusKey:{}, finished:false
+});
+let state = loadState();
+
+function loadState(){
+  try{ const s=JSON.parse(localStorage.getItem(STORE_KEY)); if(s&&typeof s.current==="number") return Object.assign(defaultState(),s);}catch(e){}
+  return defaultState();
+}
+function saveState(){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(state)); }catch(e){} }
+
+/* =========================================================================
+   렌더링
+   ========================================================================= */
+const $ = sel => document.querySelector(sel);
+const stepperEl=$("#stepper"), leftCard=$("#leftCard"), rightCard=$("#rightCard"),
+      progBar=$("#progBar"), progLabel=$("#progLabel"),
+      prevBtn=$("#prevBtn"), nextBtn=$("#nextBtn"),
+      summaryCard=$("#summaryCard"), stageGrid=$("#stageGrid");
+
+function getData(key){ return CASE.rawData.find(d=>d.key===key); }
+
+function renderStepper(){
+  stepperEl.innerHTML="";
+  STAGES.forEach((s,i)=>{
+    const b=document.createElement("button");
+    b.className="step"+(i===state.current?" active":"")+(i<state.maxReached||(state.finished)? " done":"");
+    b.setAttribute("aria-current", i===state.current?"step":"false");
+    b.innerHTML=`<span class="n"><span class="num">${i+1}</span></span>
+      <span class="t">${s.name}</span><span class="cog">${s.cogText}</span>`;
+    b.addEventListener("click",()=>{ if(i<=state.maxReached){ state.current=i; saveState(); render(); }
+      else toast("이전 단계를 먼저 진행하세요."); });
+    stepperEl.appendChild(b);
+  });
+  const pct=Math.round(((state.current+1)/STAGES.length)*100);
+  progBar.style.width=pct+"%";
+  progLabel.textContent=`진행도 ${state.current+1} / ${STAGES.length} 단계  ·  ${pct}%` +
+    (state.cycles>0?`  ·  재순환 ${state.cycles}회`:"");
+}
+
+/* 왼쪽: 임상 활동 + 데이터 */
+function renderLeft(stage){
+  const rows = CASE.rawData.map(d=>{
+    const flagged = stage.focus===d.key;
+    return `<div class="data-row ${d.flag?'flag':''}" ${flagged?'style="box-shadow:0 0 0 2px var(--green-900) inset"':''}>
+      <div class="k">${d.name}</div>
+      <div class="v">${d.value}<span class="unit">${d.unit?(" "+d.unit):""}</span>
+        ${d.abn?`<span class="abn">${d.abn}</span>`:""}
+        ${d.verify?`<span class="verify" title="임상적 절대값/해석은 기관 프로토콜에 따라 검증 필요">검증 필요</span>`:""}</div>
+    </div>`;
+  }).join("");
+  leftCard.innerHTML=`
+    <span class="section-tag">임상 활동 · ${stage.name}</span>
+    <h2>${stage.name} 단계</h2>
+    <p class="lead">${stage.desc}</p>
+    <div class="pt-head">
+      <div class="ava">${CASE.patient.initial}</div>
+      <div><b>${CASE.title}</b><small>${CASE.patient.info}</small></div>
+    </div>
+    <div class="activity">🩺 <b>이 단계에서 하는 일:</b> ${stage.activity}</div>
+    <div style="margin-top:13px" class="section-tag">수집된 환자 데이터(원자료)</div>
+    <div class="data-list">${rows}</div>
+    <p style="font-size:11.5px;color:var(--ink-soft);margin-top:9px">
+      ※ <span class="mono">검증 필요</span> 표시 항목(젖산 절대값·관찰 해석)은 기관 프로토콜·재측정으로 확인이 필요합니다.</p>
+  `;
+}
+
+/* 오른쪽 상단: DIKW 4층 변환 패널 */
+function renderDikwPanel(stage){
+  const focus = getData(state.focusKey[stage.key] || stage.focus);
+  const layerHTML = DIKW.map(L=>{
+    const isOn = stage.on.includes(L.lv);
+    const isCog = stage.cog===L.lv;
+    const text = focus[L.lv==="data"?"d":L.lv==="info"?"i":L.lv==="know"?"k":"w"];
+    return `<div class="layer ${L.cls} ${isOn?'on':''} ${isCog?'cog':''}" data-lv="${L.lv}">
+      <div class="lh"><span class="ico">${L.icon}</span><span class="lt">${L.title}</span>
+        <span class="le">${L.en}</span></div>
+      <div class="lc">${text}</div>
+    </div>`;
+  }).join('<div class="flow-arrow" aria-hidden="true">▲</div>');
+
+  // 초점 데이터 선택지
+  const opts = CASE.rawData.map(d=>`<option value="${d.key}" ${focus.key===d.key?'selected':''}>${d.name}: ${d.value}${d.unit?(" "+d.unit):""}</option>`).join("");
+
+  return `
+    <span class="section-tag">DIKW 변환 패널 · 무게중심 = ${stage.cogText}</span>
+    <h2 style="font-size:17px">동일 데이터의 인지 격상</h2>
+    <p class="lead">아래 <b>데이터</b>에서 위 <b>지혜</b>로 쌓입니다. 현재 단계의 <b>무게중심</b> 층이 강조됩니다.
+      초점 데이터를 바꿔 같은 항목이 단계마다 어떻게 격상되는지 비교해 보세요.</p>
+    <div class="focus-chip">
+      <span>초점 데이터</span><span class="v">${focus.name}</span>
+      <span class="focus-select">
+        <label class="sr-only" for="focusSel">초점 데이터 선택</label>
+        <select id="focusSel">${opts}</select></span>
+    </div>
+    <div class="dikw-panel" id="dikwPanel">${layerHTML}</div>
+    <div class="legend">
+      <span><i style="background:var(--d-data)"></i>데이터</span>
+      <span><i style="background:var(--d-info)"></i>정보</span>
+      <span><i style="background:var(--d-know)"></i>지식</span>
+      <span><i style="background:var(--d-wis)"></i>지혜</span>
+      <span style="margin-left:auto">옅은 층 = 비활성(이 단계에서 비중↓), 선명한 층 = 활성</span>
+    </div>`;
+}
+
+/* 오른쪽 하단: 미니퀴즈 또는 의사결정/평가 */
+function renderQuiz(stage){
+  const items = QUIZ[stage.key];
+  const saved = state.quiz[stage.key] || {};
+  const qHTML = items.map((q,idx)=>{
+    const picked = saved[idx];
+    const optBtns = DIKW.map(L=>{
+      let cls="opt";
+      if(picked!==undefined){
+        if(L.lv===q.ans) cls+=" correct";
+        else if(L.lv===picked) cls+=" wrong";
+      }
+      return `<button class="${cls}" data-q="${idx}" data-lv="${L.lv}" ${picked!==undefined?'disabled':''}>${L.title}</button>`;
+    }).join("");
+    const fb = picked!==undefined
+      ? `<div class="fb show ${picked===q.ans?'ok':'no'}">
+          ${picked===q.ans?'✅ <b>정답!</b> ':'❌ <b>다시 생각해봐요.</b> 정답은 <b>'+dikwTitle(q.ans)+'</b>. '} ${q.ex}</div>`
+      : `<div class="fb" id="fb-${stage.key}-${idx}"></div>`;
+    return `<div class="qitem">
+      <div class="stmt">${idx+1}. ${q.stmt}</div>
+      <div class="opts">${optBtns}</div>
+      ${fb}
+    </div>`;
+  }).join("");
+
+  return `<div class="quiz">
+    <h3>🧩 분류 미니퀴즈</h3>
+    <p class="sub">각 항목이 DIKW 중 어느 수준인지 분류하세요. 즉시 해설이 제공됩니다.
+      <b>같은 항목도 단계·맥락에 따라 수준이 달라질 수 있음</b>에 유의하세요.</p>
+    ${qHTML}
+  </div>`;
+}
+
+function dikwTitle(lv){ return ({data:"데이터",info:"정보",know:"지식",wis:"지혜"})[lv]; }
+
+/* 수행: 의사결정 분기 */
+function renderDecision(){
+  const chosen=state.decision;
+  const choices=DECISION.options.map(o=>{
+    const sel = chosen===o.id;
+    const cls = sel?("choice "+o.grade):"choice";
+    return `<button class="${cls}" data-ch="${o.id}" ${chosen?'disabled':''}>
+        <span class="ch-tag" style="background:${o.tagColor};color:#fff">${o.tag}</span>
+        <span class="ch-t">${o.id}. ${o.label}</span>
+      </button>
+      <div class="outcome ${o.grade} ${sel?'show':''}">
+        <h4>${o.title}</h4><div>${o.body}</div>
+        <div class="why">💡 <b>DIKW 관점:</b> ${o.why}</div>
+      </div>`;
+  }).join("");
+  return `<div class="quiz decision">
+    <h3>⚖️ 임상 의사결정 분기점 — 지혜의 발현</h3>
+    <p class="sub">지식을 '이 환자, 지금 이 순간'에 적용하는 단계입니다. 하나를 선택하면 결과와 근거가 제시됩니다.</p>
+    <div class="scenario">📋 <b>상황:</b> ${DECISION.scenario}</div>
+    ${choices}
+  </div>`;
+}
+
+/* 평가: 추세 + 재순환 */
+function renderEvaluate(){
+  return `<div class="quiz">
+    <h3>📈 결과 판단 & 순환</h3>
+    <p class="sub">중재 후 재측정 데이터의 <b>추세</b>를 해석해 효과를 판단합니다. 이 데이터는 다시 사정으로 환류됩니다.</p>
+    <div class="trend">
+      <div class="t"><div class="k">젖산(Lactate)</div><div class="v">3.1 <span class="arr">→</span> 1.6 <span class="arr">▼</span></div></div>
+      <div class="t"><div class="k">평균동맥압(MAP)</div><div class="v">62 <span class="arr">→</span> 72 <span class="arr">▲</span></div></div>
+      <div class="t"><div class="k">의식수준</div><div class="v">기면 <span class="arr">→</span> 명료 <span class="arr">▲</span></div></div>
+      <div class="t"><div class="k">소변량(시간)</div><div class="v">12 <span class="arr">→</span> 45 mL/h <span class="arr">▲</span></div></div>
+    </div>
+    <div class="fb show ok" style="margin-top:4px">
+      ✅ <b>판단:</b> 젖산 정상화·MAP 회복·의식·소변량 개선 → 조직관류가 호전되었습니다.
+      그러나 패혈증은 재악화 위험이 있으므로 <b>모니터링을 유지</b>하고 새 데이터로 <b>재사정</b>합니다.
+      이렇게 평가 단계의 새 데이터가 다시 사정으로 들어가는 것이 <b>간호과정의 순환성</b>입니다.</div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="btn recycle" id="recycleBtn">🔄 사정 단계로 재순환하기</button>
+      <button class="btn primary" id="finishBtn" style="margin-left:8px">학습 정리 보기 →</button>
+    </div>
+  </div>`;
+}
+
+/* 오른쪽 카드 통합 */
+function renderRight(stage){
+  let bottom="";
+  if(stage.key==="implement") bottom=renderDecision();
+  else if(stage.key==="evaluate") bottom=renderEvaluate();
+  else bottom=renderQuiz(stage);
+  rightCard.innerHTML = renderDikwPanel(stage) + bottom;
+  wireRight(stage);
+}
+
+function wireRight(stage){
+  // 초점 데이터 선택
+  const sel=$("#focusSel");
+  if(sel) sel.addEventListener("change",e=>{
+    state.focusKey[stage.key]=e.target.value; saveState();
+    // 패널만 갱신 + 짧은 애니메이션 재트리거
+    const panel=$("#dikwPanel");
+    if(panel){ animateRefresh(stage); }
+  });
+  // 퀴즈
+  rightCard.querySelectorAll(".opt").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const qi=+btn.dataset.q, lv=btn.dataset.lv;
+      state.quiz[stage.key]=state.quiz[stage.key]||{};
+      if(state.quiz[stage.key][qi]!==undefined) return;
+      state.quiz[stage.key][qi]=lv; saveState();
+      renderRight(stage);
+    });
+  });
+  // 의사결정
+  rightCard.querySelectorAll(".choice").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      if(state.decision) return;
+      state.decision=btn.dataset.ch; saveState(); renderRight(stage);
+    });
+  });
+  // 평가 버튼
+  const rec=$("#recycleBtn"); if(rec) rec.addEventListener("click",recycle);
+  const fin=$("#finishBtn"); if(fin) fin.addEventListener("click",finish);
+}
+
+function animateRefresh(stage){
+  const focus=getData(state.focusKey[stage.key]||stage.focus);
+  const panel=$("#dikwPanel"); if(!panel) return;
+  panel.querySelectorAll(".layer").forEach(el=>{
+    const lv=el.dataset.lv;
+    const key=lv==="data"?"d":lv==="info"?"i":lv==="know"?"k":"w";
+    const lc=el.querySelector(".lc");
+    el.style.transform="scale(.97)"; el.style.opacity=".4";
+    setTimeout(()=>{ lc.textContent=focus[key];
+      el.style.transform=""; el.style.opacity=""; },120);
+  });
+  const chip=document.querySelector(".focus-chip .v"); if(chip) chip.textContent=focus.name;
+}
+
+/* 메인 렌더 */
+function render(){
+  if(state.finished){ renderSummary(); return; }
+  summaryCard.classList.add("hidden"); stageGrid.classList.remove("hidden");
+  $(".nav").style.display="";
+  const stage=STAGES[state.current];
+  renderStepper();
+  renderLeft(stage);
+  renderRight(stage);
+  prevBtn.disabled = state.current===0;
+  nextBtn.textContent = state.current===STAGES.length-1 ? "학습 정리 →" : "다음 단계 →";
+  // 데이터 행 격상 강조 애니메이션 (단계 전환 효과)
+  requestAnimationFrame(()=>{ triggerStageAnim(); });
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function triggerStageAnim(){
+  const panel=$("#dikwPanel"); if(!panel) return;
+  panel.querySelectorAll(".layer.on").forEach((el,i)=>{
+    el.animate?el.animate([{transform:"translateY(8px) scale(.96)",opacity:.3},
+      {transform:"none",opacity:el.classList.contains('cog')?1:1}],
+      {duration:420,delay:i*90,easing:"cubic-bezier(.2,.7,.2,1)",fill:"backwards"}):0;
+  });
+}
+
+/* 네비게이션 */
+function next(){
+  if(state.current<STAGES.length-1){
+    state.current++; state.maxReached=Math.max(state.maxReached,state.current); saveState(); render();
+  } else finish();
+}
+function prev(){ if(state.current>0){ state.current--; saveState(); render(); } }
+prevBtn.addEventListener("click",prev);
+nextBtn.addEventListener("click",next);
+
+function recycle(){
+  state.cycles++; state.current=0; state.maxReached=Math.max(state.maxReached,0);
+  saveState();
+  toast("🔄 새 데이터를 가지고 사정 단계로 재순환합니다. (간호과정은 순환한다)");
+  render();
+}
+
+/* =========================================================================
+   점수 계산 & 학습 정리
+   ========================================================================= */
+function computeScore(){
+  let total=0, correct=0;
+  for(const k in QUIZ){
+    QUIZ[k].forEach((q,i)=>{
+      total++;
+      if(state.quiz[k] && state.quiz[k][i]===q.ans) correct++;
+    });
+  }
+  // 의사결정 가산
+  let decBonus=0, decTotal=1;
+  if(state.decision==="B") decBonus=1; else if(state.decision==="C") decBonus=0.5;
+  const quizPct = total? (correct/total) : 0;
+  const overall = Math.round(((correct+decBonus)/(total+decTotal))*100);
+  return {total,correct,decBonus,decTotal,overall,quizPct};
+}
+
+function finish(){
+  state.finished=true; state.maxReached=STAGES.length-1; saveState(); renderSummary();
+}
+
+function renderSummary(){
+  stageGrid.classList.add("hidden"); $(".nav").style.display="none";
+  summaryCard.classList.remove("hidden");
+  const s=computeScore();
+  renderStepper();
+  progBar.style.width="100%";
+  progLabel.textContent=`학습 완료 · 전체 ${STAGES.length}단계` + (state.cycles>0?` · 재순환 ${state.cycles}회`:"");
+
+  const stageRows = STAGES.map(st=>{
+    if(st.key==="implement"){
+      const lab = state.decision? (state.decision==="B"?"최적 판단(B)":state.decision==="C"?"부분 판단(C)":"위험 판단(A)") : "미응답";
+      return `<div class="r"><b>${st.name} · ${st.cogText}</b><span>의사결정: ${lab}</span></div>`;
+    }
+    if(st.key==="evaluate"){
+      return `<div class="r"><b>${st.name} · ${st.cogText}</b><span>결과 판단 후 ${state.cycles>0?`재순환 ${state.cycles}회 경험`:"순환성 학습"}</span></div>`;
+    }
+    const sav=state.quiz[st.key]||{}; let c=0; QUIZ[st.key].forEach((q,i)=>{if(sav[i]===q.ans)c++;});
+    return `<div class="r"><b>${st.name} · ${st.cogText}</b><span>분류 퀴즈 ${c} / ${QUIZ[st.key].length} 정답</span></div>`;
+  }).join("");
+
+  summaryCard.innerHTML=`
+    <span class="section-tag">학습 정리 · 자가평가</span>
+    <h2>DIKW는 라벨이 아니라 연속적 변환입니다</h2>
+    <p class="lead">한 환자의 같은 데이터가 간호과정을 거치며 정보·지식·지혜로 격상되는 과정을 체험했습니다.
+      아래는 자가평가 점수입니다.</p>
+    <div class="score-big">
+      <div class="donut" style="--p:${s.overall}"><span>${s.overall}<small>점</small></span></div>
+      <div>
+        <p style="margin:.2em 0;font-size:14.5px"><b>분류 퀴즈 정답:</b> ${s.correct} / ${s.total}
+          (${Math.round(s.quizPct*100)}%)</p>
+        <p style="margin:.2em 0;font-size:14.5px"><b>임상 의사결정:</b>
+          ${state.decision? (state.decision==="B"?"최적 판단(B) ✓":state.decision==="C"?"부분 판단(C) △":"위험 판단(A) ✗"):"미응답"}</p>
+        <p style="margin:.2em 0;font-size:13px;color:var(--ink-soft)">전체 점수 = (퀴즈 정답 + 의사결정 가중) / 전체 문항</p>
+      </div>
+    </div>
+
+    <div class="recap">${stageRows}</div>
+
+    <div class="continuum-note" style="margin-top:18px">
+      🎓 <strong>핵심 정리</strong><br>
+      ① <b>데이터→정보</b>: 수치에 맥락(정상범위)을 부여하면 의미가 생긴다(사정).<br>
+      ② <b>정보→지식</b>: 정보 간 패턴을 묶으면 임상상(진단)이 된다(진단·계획).<br>
+      ③ <b>지식→지혜</b>: 지식을 '이 환자·이 순간'에 적용하면 판단·행동(지혜)이 된다(수행).<br>
+      ④ <b>순환</b>: 평가의 새 데이터가 다시 사정으로 환류된다 — DIKW는 칸막이가 아닌 <b>연속체</b>이며,
+      데이터 수집과 임상 판단은 전 과정에서 함께 일어난다.
+    </div>
+
+    <div style="text-align:center;margin-top:18px">
+      <button class="btn ghost" id="reviewBtn">처음부터 다시 보기</button>
+      <button class="btn primary" id="resetBtn" style="margin-left:8px">기록 초기화 후 재시작</button>
+    </div>
+
+    <div class="ref">
+      <b>학술적 근거</b> · Graves &amp; Corcoran (1989). <i>The Study of Nursing Informatics.</i>
+      간호정보학을 데이터–정보–지식의 처리·관리 과학으로 정의. ·
+      Nelson R. <i>데이터–지혜 연속체(Data-to-Wisdom Continuum)</i> — 지혜 층을 더해 DIKW로 확장. ·
+      간호과정 5단계: ANA Standards. <br>
+      <span style="color:var(--warn)">※ 임상 수치(젖산 절대값, qSOFA/SIRS 해석 등)는 교육용 예시이며 실제 적용 시 최신 기관 프로토콜로 <b>검증 필요</b>.</span>
+    </div>`;
+
+  $("#reviewBtn").addEventListener("click",()=>{ state.finished=false; state.current=0; saveState(); render(); });
+  $("#resetBtn").addEventListener("click",()=>{
+    if(confirm("저장된 진행상태·점수를 모두 지우고 처음부터 시작할까요?")){
+      localStorage.removeItem(STORE_KEY); state=defaultState(); render();
+      toast("기록을 초기화했습니다.");
+    }
+  });
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* =========================================================================
+   유틸 / 키보드
+   ========================================================================= */
+let toastTimer;
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2600);
+}
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="SELECT"||e.target.tagName==="INPUT") return;
+  if(state.finished) return;
+  if(e.key==="ArrowRight"){ next(); }
+  else if(e.key==="ArrowLeft"){ prev(); }
+});
+
+/* 시작 */
+render();
+if(state.cycles>0 || state.current>0 || state.finished){
+  setTimeout(()=>toast("저장된 학습 진행상태를 불러왔습니다."),400);
+}
+</script>
+</body>
+</html>
